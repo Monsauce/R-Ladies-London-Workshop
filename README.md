@@ -1,2 +1,2 @@
 # R-Ladies-Workshop
-Materials for R Ladies data manipulation and multivariate workshop
+When you collect a lot of data you can run into the problem of having 
