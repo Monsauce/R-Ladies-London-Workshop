@@ -1,2 +1,2 @@
 # R-Ladies-Workshop
-When you collect a lot of data you can run into the problem of having 
+Code and exercises for the R Ladies London Workshop on Data manupulation and multivariate analyses. The workshop is availiable as an RMarkdown file. 
