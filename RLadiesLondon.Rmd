@@ -1,0 +1,201 @@
+---
+title: "R Ladies Workshop: Data manipulation and multivariate analyses"
+author: "Monica Granados"
+date: '2017-06-19'
+output: pdf_document
+---
+
+## Introduction 
+
+Having a big data set is sweet, but multiple variables can occlude relationships between what you are measuring. In this 1.5 hour workshop we will be working with the built-in iris data set. This famous (Fisher's or Anderson's) iris data set gives the measurements in centimeters of the variables sepal length and width and petal length and width, respectively, for 50 flowers from each of 3 species of iris. We first will look at manipulating this data set to get some summary statistics and carry out some calculations using the plyr package. Next we will use the tidyr package to transform our data from "long"" to "wide"" and then we will use the vegan package to plot our multivariate data. Finally, we will have some fun with the emoGG package. 
+
+You will first need to instal the plyr, tidyr, vegan, ggplot2, GGally and emoGG (devtools::install_github("dill/emoGG")) packages.  
+
+### A brief overview of RMarkdown synax
+
+RMarkdown is an extension of the R Studio GUI that allows you to embed code into your documents. Text in RMarkdown works very much like you general word processor, except instead of a toolbar to bold, underline, italicize and headings - you have to use syntax. 
+
+#### Text
+
+* plain text
+* two asterisks on each side for **bold**
+* one astrisk for *italics*
+
+#### Code chunks
+To embed code chunks you start first have to distinguish it from plain text with the following: ```{r eval=X, echo=X, r include=X}. In this statement you indicate whether you would like RMarkdown to evaluate and/or print your code.
+
+
+* run and print the code: r eval=TRUE, echo=TRUE
+* run but hide the code: r include=FALSE
+* print but not run the code: r eval=FALSE,echo=TRUE
+
+Finally you end your code chunk with: ```
+
+## Load in data
+The iris dataset can be easily loaded into the console using data(iris). Let's have a quick look at the data. 
+
+```{r eval=TRUE, echo=TRUE}
+#load in data
+data(iris)
+#look at first six rows
+head(iris)
+```
+
+## Summary statistics and calculations with dplyr
+
+Let's say we are interested in knowing some summary statistics about our dataset. For example, say I want to know what the average pedal width is for all the species of iris in our data set. Here we will use the "summarize" function which will allow us to get a new data frame with just the means for each species. 
+
+```{r eval=TRUE, echo=TRUE}
+#load plyr
+library(plyr)
+#calculate mean
+iris.mean<-ddply(iris, .(Species), .fun= summarise, mean.width=mean(Petal.Width))
+#look at first three rows
+head(iris.mean)
+```
+
+You can also perform calculations across your dataf rame. Let's say you were interested in knowing what the ratio of your petal length to you petal width was. Here instead of using the "summarize" function we will use the "transform"" function which will just append a new column to our data frame. 
+
+```{r eval=TRUE, echo=TRUE}
+#calculate ratio
+iris.petal.ratio<-ddply(iris, .(), .fun= transform, Petal.ratio=Petal.Length/Petal.Width)
+#look at first six rows
+head(iris.petal.ratio)
+```
+
+### **Exercise 1**
+
+Using the ddply function add a sixth column to the data frame which shows the ratio of sepal length to sepal width. 
+
+
+## Going from long to wide with tidyr
+
+Multivariate analyses require that your data frame be in a specific shape. “Long” format data has a column stating the measured variable types and a column containing the values associated to those variables (each column is a variable, each row is an observation). This is considered “tidy” data because it is easily interpreted by most packages for visualization and analysis in R. In "wide"" data every row is an observation and each column is a variable, for example a species.
+
+We can use the tidyr package to move back and forth between wide and long.  
+
+* gather” our data (wide –> long)
+* “spread” our data (long –> wide)
+
+Let's gather our iris data. The syntax of this function is: (data, what you want to gather across, the “unit” of your new column, the row identity)
+
+```{r eval=TRUE, echo=TRUE}
+#load tidyr 
+library(tidyr)
+#add identifiyers
+iris$row <- 1:nrow(iris)
+#gather data
+iris.long<-gather(iris, Measurement, cm, Sepal.Length, Sepal.Width, Petal.Length, Petal.Width)
+#look at first six rows
+head(iris.long)
+```
+
+However, multivariate analyses requires the data be in wide format so lets go back to our original format using spread.  
+
+```{r eval=TRUE, echo=TRUE}
+#spread data
+iris.wide<-spread(iris.long, Measurement, cm)
+#look at first six rows
+head(iris.wide)
+```
+
+### **Exercise 2**
+
+Let's pretend you send out your field assistant to measure the diameter at breast height (DBH) and height of three tree species for you. The result is this messy wide data set. Convert it to long. 
+
+```{r eval=TRUE, echo=TRUE}
+#load messy data
+messy <- data.frame(Species = c("Oak", "Elm", "Ash"),
+                          DBH = c(12, 20, 13),
+                       Height = c(56, 85, 55))
+#look at three six rows
+head(messy)
+```
+
+## Multivariate analyses with vegan 
+
+Traditionally, the best way to visualize the relationship between variables is to plot them against one another. The GGally package has a function that allows you to generate bivariate plots of all your variables simultaneously.
+
+```{r, warning=FALSE, fig.width=5, fig.height=6.5, echo=TRUE}
+#load package
+library(GGally)
+#plot all pairs of variables
+iris.pairs<-ggpairs(iris, columns=1:4, ggplot2::aes(colour=Species))
+iris.pairs
+```
+
+
+However, this really only lets us view two variables at once. If we hypothesize that multiple variables are interacting simultaneously to generate a signal then we need to use a method that allows us to integrate all of the variables at once. Next we will use the vegan package to calculate the "distance" between our observations using our variables. The first step is to get a distance matrix - this triangular matrix that tells us the pairwise distance between each observation. 
+
+An added feature is that you can choose what distance measure you use. For simplicity we will use a Euclidean distance (sqrt(sum(x[ij]-x[ik])^2)) measure. 
+
+
+```{r eval=TRUE, echo=TRUE}
+#load package
+library(vegan)
+#calculate distance matrix
+iris.dm<-vegdist(iris[,1:4], method="euclidean")
+```
+
+Now we have a great triangular matrix that tells us how each observation relates to each other based on the input variables (Sepal.Length, Sepal.Width, Petal.Length, Petal.Width). Now we can move to visualize this data. For this workshop we will use non-metric multidimensional scaling (NMDS). An NMDS is 2D graphical representation of between-objects similarity: dissimilar objects are far apart in the ordination space and similar objects close to one another.
+
+```{r eval=TRUE, echo=TRUE}
+#load package
+library(ggplot2)
+#run nmds
+iris.nmds<-metaMDS(iris.dm, k=2)
+#get scores
+nmds.points<-as.data.frame(iris.nmds$points)
+#assign species information
+nmds.points$species<-iris[,5]
+#make plot
+iris.nmds.plot<-ggplot(nmds.points, aes(x = MDS1, y = MDS2))+
+  geom_point(aes(colour=species))+
+  ylab("NMDS 1")+ xlab("NMDS 2")+
+  theme_classic()+theme(panel.border=element_rect(colour="black",fill=NA))+
+  scale_colour_manual(values=c("black", "grey", "red"))+theme(legend.position="bottom")
+```
+
+```{r, warning=FALSE, fig.width=5, fig.height=5, echo=FALSE}
+iris.nmds.plot
+```
+
+## Fun with emoGG
+R is an open source project meaning anyone, anywhere in the world can contribute to it or make an add-on. One fun add-on is the ability to make the points of your plots out of emojis. David Lawrence Miller is the author of the emoGG package. 
+
+The first step is to look up which emojis you want to use. Since our dataset is about flowers why don't we start there?
+```{r eval=TRUE, echo=TRUE}
+#load package
+library(emoGG)
+#search for emojis
+emoji_search("flower")
+```
+
+Once we have the code for the emojis we want to use: 1f337, 1f339, 1f33a we can then just replace them for the scale_colur_manual call in ggplot. 
+
+```{r eval=TRUE, echo=TRUE}
+#make plot
+iris.nmds.plot.emoji<-ggplot(nmds.points, aes(x = MDS1, y = MDS2))+
+  geom_point(aes(colour=species))+
+  ylab("NMDS 1")+ xlab("NMDS 2")+
+  theme_classic()+theme(panel.border=element_rect(colour="black",fill=NA))+
+  geom_emoji(data = nmds.points[nmds.points$species == "setosa", ], emoji = "1f337")+
+  geom_emoji(data = nmds.points[nmds.points$species == "virginica", ], emoji = "1f339")+
+  geom_emoji(data = nmds.points[nmds.points$species == "versicolor", ], emoji = "1f33a")+
+  theme(legend.position="none")
+```
+
+```{r, warning=FALSE, fig.width=5, fig.height=5, echo=FALSE}
+iris.nmds.plot.emoji
+```
+
+### **Exercise 3**
+
+Make a biplot of the iris data using emojis!
+
+## Questions? 
+
+Additional resources: http://qcbs.ca/wiki/r_workshop3
+
+
+
